@@ -34,6 +34,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/tickets/registro").permitAll()
                         .requestMatchers("/api/auth/**").permitAll()
                         .requestMatchers("/ws-tickets/**").permitAll()
+                        .requestMatchers("/api/usuarios/info/**").permitAll()
 
                         // 2. SWAGGER (Documentación)
                         .requestMatchers(
@@ -56,9 +57,13 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOrigins(List.of("*"));
+
+        // Permitir explícitamente el origen de Angular
+        configuration.setAllowedOrigins(List.of("http://localhost:4200"));  // O usar patterns si prefieres flexibilidad: configuration.setAllowedOriginPatterns(List.of("*"));
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(List.of("*"));
+        configuration.setAllowCredentials(true);
+
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);
         return source;

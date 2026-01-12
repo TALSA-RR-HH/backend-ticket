@@ -33,7 +33,7 @@ public class TicketController {
     // ==========================================
 
     @PostMapping("/registro")
-    public ResponseEntity<TicketResponseDTO> registrarTicket(@RequestBody TicketRegistroDTO dto) {
+    public ResponseEntity<TicketResponseDTO> registrarTicket(@Valid @RequestBody TicketRegistroDTO dto) {
         TicketResponseDTO ticketCreado = ticketService.registrarSolicitud(dto);
         return ResponseEntity.status(HttpStatus.CREATED).body(ticketCreado);
     }
