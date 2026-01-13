@@ -94,4 +94,8 @@ public interface TicketRepository extends JpaRepository<Ticket, Long> {
     // Reemplaza o agrega este método:
     // Ordena por Categoría (Agrupación) y luego por antigüedad (FIFO)
     List<Ticket> findByEstadoOrderByCategoriaAscFechaCreacionAsc(EstadoTicket estado);
+
+    // Traer tickets que estén en una lista de estados (PENDIENTE o AUSENTE)
+    // Ordenados: Agrupados por Categoría y luego por orden de llegada
+    List<Ticket> findByEstadoInOrderByCategoriaAscFechaCreacionAsc(List<EstadoTicket> estados);
 }

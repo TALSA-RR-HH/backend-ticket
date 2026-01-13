@@ -86,9 +86,10 @@ public class TicketController {
     }
 
     @PostMapping("/{id}/cancelar")
-    public ResponseEntity<TicketResponseDTO> cancelarTicket(@PathVariable Long id, @RequestBody(required = false) Map<String, String> body) {
-        String motivo = (body != null && body.containsKey("observacion")) ? body.get("observacion") : "Sin motivo especificado";
-        TicketResponseDTO ticket = ticketService.cancelarTicket(id, motivo);
+    public ResponseEntity<TicketResponseDTO> cancelarTicket(@PathVariable Long id, @Valid @RequestBody TicketCancelacionDTO dto) {
+
+        // Ahora el acceso a los datos es directo y seguro
+        TicketResponseDTO ticket = ticketService.cancelarTicket(id, dto.getObservacion());
         return ResponseEntity.ok(ticket);
     }
 
@@ -181,5 +182,11 @@ public class TicketController {
     public ResponseEntity<TicketResponseDTO> editarTicket(@PathVariable Long id, @Valid @RequestBody TicketEdicionDTO dto) {
         TicketResponseDTO ticketActualizado = ticketService.editarTicket(id, dto);
         return ResponseEntity.ok(ticketActualizado);
+    }
+
+    @PostMapping("/{id}/ausente")
+    public ResponseEntity<TicketResponseDTO> marcarAusente(@PathVariable Long id) {
+        TicketResponseDTO ticket = ticketService.marcarComoAusente(id);
+        return ResponseEntity.ok(ticket);
     }
 }

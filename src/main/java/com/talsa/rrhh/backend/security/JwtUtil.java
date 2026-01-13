@@ -1,5 +1,6 @@
 package com.talsa.rrhh.backend.security;
 
+import com.talsa.rrhh.backend.entity.Usuario;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.io.Decoders;
@@ -25,9 +26,21 @@ public class JwtUtil {
         return Keys.hmacShaKeyFor(keyBytes);
     }
 
-    // Generar Token para un usuario
+    // Generar Token (Ahora con datos extra)
     public String generateToken(UserDetails userDetails) {
-        return createToken(new HashMap<>(), userDetails.getUsername());
+        Map<String, Object> claims = new HashMap<>();
+
+        // Verificamos que userDetails sea de nuestra clase Usuario
+        if (userDetails instanceof Usuario) {
+            Usuario u = (Usuario) userDetails;
+            claims.put("nombre", u.getNombre());
+            claims.put("apellidos", u.getApellidos());
+            claims.put("rol", u.getRol().toString());
+            // Puedes agregar más cosas si quieres, como el ID
+            claims.put("idUsuario", u.getId());
+        }
+
+        return createToken(claims, userDetails.getUsername());
     }
 
     private String createToken(Map<String, Object> claims, String subject) {

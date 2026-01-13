@@ -74,17 +74,20 @@ public class TicketService {
      * Envía listas limpias (DTOs) para no exponer datos innecesarios en la pantalla pública.
      */
     private void notificarCambiosEnCola() {
-        // 1. Canal de Espera
-        List<TicketResponseDTO> pendientes = ticketRepository.findByEstado(EstadoTicket.PENDIENTE)
-                .stream().map(this::convertirADTO).collect(Collectors.toList());
-        messagingTemplate.convertAndSend("/topic/pendientes", pendientes);
+        // 1. Canal de Espera (AHORA INCLUYE AUSENTES)
+        List<EstadoTicket> estadosVisibles = List.of(EstadoTicket.PENDIENTE, EstadoTicket.AUSENTE);
 
-        // 2. Canal de "Llamando Ahora"
+        List<TicketResponseDTO> cola = ticketRepository.findByEstadoInOrderByCategoriaAscFechaCreacionAsc(estadosVisibles)
+                .stream().map(this::convertirADTO).collect(Collectors.toList());
+
+        messagingTemplate.convertAndSend("/topic/pendientes", cola);
+
+        // 2. Canal de "Llamando Ahora" (Se mantiene igual, solo EN_ATENCION)
         List<TicketResponseDTO> enAtencion = ticketRepository.findByEstado(EstadoTicket.EN_ATENCION)
                 .stream().map(this::convertirADTO).collect(Collectors.toList());
         messagingTemplate.convertAndSend("/topic/en-atencion", enAtencion);
 
-        System.out.println("📡 WebSocket: Listas actualizadas enviadas a la TV");
+        System.out.println("📡 WebSocket: Listas actualizadas (Pendientes + Ausentes)");
     }
 
     // ==========================================
@@ -136,8 +139,10 @@ public class TicketService {
     // ==========================================
 
     public List<TicketResponseDTO> listarTicketsPendientes() {
-        // Usamos el metodo ordenado
-        return ticketRepository.findByEstadoOrderByCategoriaAscFechaCreacionAsc(EstadoTicket.PENDIENTE)
+        // AHORA BUSCAMOS PENDIENTES Y AUSENTES
+        List<EstadoTicket> estadosVisibles = List.of(EstadoTicket.PENDIENTE, EstadoTicket.AUSENTE);
+
+        return ticketRepository.findByEstadoInOrderByCategoriaAscFechaCreacionAsc(estadosVisibles)
                 .stream().map(this::convertirADTO).collect(Collectors.toList());
     }
 
@@ -154,8 +159,9 @@ public class TicketService {
         Usuario usuario = usuarioRepository.findByUsername(usernameAtendedor)
                 .orElseThrow(() -> new EntityNotFoundException("Usuario de atención no encontrado"));
 
-        if (ticket.getEstado() != EstadoTicket.PENDIENTE) {
-            throw new IllegalStateException("El ticket ya está siendo atendido o finalizó");
+        // CORRECCIÓN: Ahora permitimos PENDIENTE o AUSENTE (Re-llamar)
+        if (ticket.getEstado() != EstadoTicket.PENDIENTE && ticket.getEstado() != EstadoTicket.AUSENTE) {
+            throw new IllegalStateException("El ticket ya está siendo atendido, finalizó o fue cancelado.");
         }
 
         ticket.setEstado(EstadoTicket.EN_ATENCION);
@@ -163,7 +169,7 @@ public class TicketService {
         ticket.setFechaInicioAtencion(LocalDateTime.now());
 
         Ticket guardado = ticketRepository.save(ticket);
-        notificarCambiosEnCola(); // Actualiza la TV (Mueve de espera a pantalla principal)
+        notificarCambiosEnCola();
 
         return convertirADTO(guardado);
     }
@@ -415,6 +421,28 @@ public class TicketService {
 
         Ticket guardado = ticketRepository.save(ticket);
         notificarCambiosEnCola(); // Actualiza la pantalla para que desaparezca
+
+        return convertirADTO(guardado);
+    }
+
+    @Transactional
+    public TicketResponseDTO marcarComoAusente(Long ticketId) {
+        Ticket ticket = ticketRepository.findById(ticketId)
+                .orElseThrow(() -> new EntityNotFoundException("Ticket no encontrado"));
+
+        if (ticket.getEstado() != EstadoTicket.EN_ATENCION) {
+            throw new IllegalStateException("Solo se puede marcar ausente un ticket que estás llamando actualmente.");
+        }
+
+        ticket.setEstado(EstadoTicket.AUSENTE);
+        ticket.setFechaFinAtencion(LocalDateTime.now());
+
+        // Agregamos una nota automática
+        String obsActual = (ticket.getObservacion() == null) ? "" : ticket.getObservacion();
+        ticket.setObservacion(obsActual + " | Marcado como AUSENTE (No se presentó).");
+
+        Ticket guardado = ticketRepository.save(ticket);
+        notificarCambiosEnCola(); // Actualiza la TV (El ticket desaparece de la pantalla)
 
         return convertirADTO(guardado);
     }
