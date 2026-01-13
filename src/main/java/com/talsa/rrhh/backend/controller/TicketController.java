@@ -189,4 +189,14 @@ public class TicketController {
         TicketResponseDTO ticket = ticketService.marcarComoAusente(id);
         return ResponseEntity.ok(ticket);
     }
+
+    // Búsqueda Rápida para el Dashboard
+    @GetMapping("/buscar-activos")
+    public ResponseEntity<List<TicketResponseDTO>> buscarTicketsActivos(@RequestParam String query) {
+        // Validamos que escriba al menos un poco para no traer todo
+        if (query == null || query.trim().isEmpty()) {
+            return ResponseEntity.ok(List.of());
+        }
+        return ResponseEntity.ok(ticketService.buscarTicketsActivos(query));
+    }
 }

@@ -446,4 +446,20 @@ public class TicketService {
 
         return convertirADTO(guardado);
     }
+
+    // Búsqueda para el Dashboard (Solo lo que está vivo hoy)
+    public List<TicketResponseDTO> buscarTicketsActivos(String query) {
+        // Definimos los estados que consideramos "Activos" en el tablero
+        List<EstadoTicket> estadosActivos = List.of(
+                EstadoTicket.PENDIENTE,
+                EstadoTicket.EN_ATENCION,
+                EstadoTicket.AUSENTE
+        );
+
+        // Buscamos coincidencias
+        return ticketRepository.findByDniSolicitanteContainingAndEstadoIn(query, estadosActivos)
+                .stream()
+                .map(this::convertirADTO)
+                .collect(Collectors.toList());
+    }
 }

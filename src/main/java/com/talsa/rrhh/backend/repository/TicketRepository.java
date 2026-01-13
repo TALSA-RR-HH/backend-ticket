@@ -98,4 +98,7 @@ public interface TicketRepository extends JpaRepository<Ticket, Long> {
     // Traer tickets que estén en una lista de estados (PENDIENTE o AUSENTE)
     // Ordenados: Agrupados por Categoría y luego por orden de llegada
     List<Ticket> findByEstadoInOrderByCategoriaAscFechaCreacionAsc(List<EstadoTicket> estados);
+
+    // Búsqueda operativa: Busca por DNI parcial, pero SOLO en tickets activos
+    List<Ticket> findByDniSolicitanteContainingAndEstadoIn(String dni, List<EstadoTicket> estados);
 }
