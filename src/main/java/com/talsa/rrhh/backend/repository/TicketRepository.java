@@ -12,6 +12,7 @@ import org.springframework.stereotype.Repository;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 
 @Repository
 public interface TicketRepository extends JpaRepository<Ticket, Long> {
@@ -86,4 +87,11 @@ public interface TicketRepository extends JpaRepository<Ticket, Long> {
     );
 
     boolean existsByDniSolicitanteAndEstadoIn(String dni, List<EstadoTicket> estados);
+
+    // Recuperación de Sesión: Busca si este usuario tiene algo pendiente en su escritorio
+    Optional<Ticket> findByUsuarioAtencion_UsernameAndEstado(String username, EstadoTicket estado);
+
+    // Reemplaza o agrega este método:
+    // Ordena por Categoría (Agrupación) y luego por antigüedad (FIFO)
+    List<Ticket> findByEstadoOrderByCategoriaAscFechaCreacionAsc(EstadoTicket estado);
 }

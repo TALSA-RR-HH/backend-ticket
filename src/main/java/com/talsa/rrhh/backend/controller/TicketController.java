@@ -12,6 +12,8 @@ import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -19,6 +21,7 @@ import java.io.IOException;
 import java.security.Principal;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/tickets")
@@ -67,6 +70,25 @@ public class TicketController {
         // Pasamos el DTO completo al servicio
         TicketResponseDTO ticket = ticketService.finalizarAtencion(id, dto);
 
+        return ResponseEntity.ok(ticket);
+    }
+
+    @GetMapping("/mi-asignacion")
+    public ResponseEntity<TicketResponseDTO> obtenerTicketEnAtencionActual() {
+        // 1. Obtener quién está logueado (Spring Security)
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        String username = auth.getName();
+
+        // 2. Preguntar al servicio
+        return ticketService.buscarTicketActivoPorUsuario(username)
+                .map(ResponseEntity::ok) // Si hay ticket, devuelve 200 OK + JSON
+                .orElse(ResponseEntity.noContent().build()); // Si no hay, devuelve 204 No Content
+    }
+
+    @PostMapping("/{id}/cancelar")
+    public ResponseEntity<TicketResponseDTO> cancelarTicket(@PathVariable Long id, @RequestBody(required = false) Map<String, String> body) {
+        String motivo = (body != null && body.containsKey("observacion")) ? body.get("observacion") : "Sin motivo especificado";
+        TicketResponseDTO ticket = ticketService.cancelarTicket(id, motivo);
         return ResponseEntity.ok(ticket);
     }
 

@@ -37,24 +37,32 @@ public class TicketService {
      * Oculta datos sensibles del usuario y formatea el nombre del responsable.
      */
     private TicketResponseDTO convertirADTO(Ticket ticket) {
-        String nombreTrabajador = null;
-
-        // Formateamos el nombre solo si hay alguien asignado
+        // 1. Formatear trabajador de atención (RRHH) - EXISTENTE
+        String nombreTrabajadorRRHH = null;
         if (ticket.getUsuarioAtencion() != null) {
-            nombreTrabajador = ticket.getUsuarioAtencion().getNombre() + " " +
+            nombreTrabajadorRRHH = ticket.getUsuarioAtencion().getNombre() + " " +
                     ticket.getUsuarioAtencion().getApellidos();
-            // Ejemplo: "Valentin Admin TI"
+        }
+
+        // 2. BUSCAR NOMBRE DEL SOLICITANTE (TRABAJADOR) - NUEVO
+        String nombreSolicitante = "DNI: " + ticket.getDniSolicitante(); // Valor por defecto
+        var usuarioOpt = usuarioRepository.findByUsername(ticket.getDniSolicitante());
+
+        if (usuarioOpt.isPresent()) {
+            Usuario u = usuarioOpt.get();
+            nombreSolicitante = u.getNombre() + " " + u.getApellidos();
         }
 
         return TicketResponseDTO.builder()
                 .id(ticket.getId())
                 .dniSolicitante(ticket.getDniSolicitante())
+                .nombreSolicitante(nombreSolicitante) // <--- ASIGNAMOS AQUÍ
                 .lugarAtencion(ticket.getLugarAtencion())
                 .categoria(ticket.getCategoria())
                 .subCategoria(ticket.getSubCategoria())
                 .observacion(ticket.getObservacion())
                 .estado(ticket.getEstado())
-                .trabajadorAtencion(nombreTrabajador) // Campo limpio
+                .trabajadorAtencion(nombreTrabajadorRRHH)
                 .fechaCreacion(ticket.getFechaCreacion())
                 .fechaInicioAtencion(ticket.getFechaInicioAtencion())
                 .fechaFinAtencion(ticket.getFechaFinAtencion())
@@ -128,7 +136,8 @@ public class TicketService {
     // ==========================================
 
     public List<TicketResponseDTO> listarTicketsPendientes() {
-        return ticketRepository.findByEstado(EstadoTicket.PENDIENTE)
+        // Usamos el metodo ordenado
+        return ticketRepository.findByEstadoOrderByCategoriaAscFechaCreacionAsc(EstadoTicket.PENDIENTE)
                 .stream().map(this::convertirADTO).collect(Collectors.toList());
     }
 
@@ -366,6 +375,46 @@ public class TicketService {
 
         // ¡IMPORTANTE! Notificar a la TV porque la información cambió
         notificarCambiosEnCola();
+
+        return convertirADTO(guardado);
+    }
+
+    // ==========================================
+    // 5. RECUPERACIÓN DE SESIÓN (F5 FIX)
+    // ==========================================
+
+    @Transactional(Transactional.TxType.SUPPORTS)
+    public Optional<TicketResponseDTO> buscarTicketActivoPorUsuario(String username) {
+        return ticketRepository.findByUsuarioAtencion_UsernameAndEstado(username, EstadoTicket.EN_ATENCION)
+                .map(this::convertirADTO);
+    }
+
+    @Transactional
+    public TicketResponseDTO cancelarTicket(Long ticketId, String observacion) {
+        Ticket ticket = ticketRepository.findById(ticketId)
+                .orElseThrow(() -> new EntityNotFoundException("Ticket no encontrado"));
+
+        // Validar que el ticket no esté ya finalizado o cancelado
+        if (ticket.getEstado() == EstadoTicket.FINALIZADO) {
+            throw new IllegalStateException("No se puede cancelar un ticket que ya fue finalizado.");
+        }
+
+        if (ticket.getEstado() == EstadoTicket.CANCELADO) {
+            throw new IllegalStateException("El ticket ya está cancelado.");
+        }
+
+        // Permitir cancelar tickets PENDIENTES o EN_ATENCION
+        ticket.setEstado(EstadoTicket.CANCELADO);
+        ticket.setFechaFinAtencion(LocalDateTime.now());
+
+        // Guardamos el motivo de la cancelación
+        if (observacion != null && !observacion.isEmpty()) {
+            String obsActual = (ticket.getObservacion() == null) ? "" : ticket.getObservacion();
+            ticket.setObservacion(obsActual + " | Cancelado: " + observacion);
+        }
+
+        Ticket guardado = ticketRepository.save(ticket);
+        notificarCambiosEnCola(); // Actualiza la pantalla para que desaparezca
 
         return convertirADTO(guardado);
     }

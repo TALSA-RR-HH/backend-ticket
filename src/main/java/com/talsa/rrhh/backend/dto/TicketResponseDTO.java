@@ -17,6 +17,7 @@ public class TicketResponseDTO {
     private SubCategoriaQueja subCategoria;
     private String observacion;
     private EstadoTicket estado;
+    private String nombreSolicitante;
 
     // CAMBIO CLAVE: Ya no enviamos el objeto Usuario, solo el nombre formateado
     private String trabajadorAtencion;
